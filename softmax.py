@@ -148,7 +148,7 @@ for model,n in zip(models, np.arange(len(model_names))):
 
 models = []
 number_of_models = 3
-model_names = ['soft_100k_8l.h5', 'soft_100k_7l.h5', 'soft_100k_6l.h5']
+model_names = ['./networks/soft_100k_8l.h5', './networks/soft_100k_7l.h5', './networks/soft_100k_6l.h5']
 
 for m in np.arange(number_of_models):
     models.append(load_model(model_names[m]))
@@ -173,7 +173,6 @@ for model, m in zip(models, np.arange(len(models))):
     for i in np.arange(which_move.shape[0]):
         print("Predicted move: ({0:d}, {1:d}) with prob: {2:4f}; Next move: ({3:d}, {4:d})".format(int(which_move[i]/19), int(which_move[i]%19), how_likely[i], int(np.argmax(y_test[i])/19), int(np.argmax(y_test[i])%19)))
     """
-    
     # Visualize predictions of network
     """
     plt.figure(2)
