@@ -16,7 +16,7 @@ from keras.models import Sequential, load_model
 from keras.layers import Dense, Activation
 from keras.regularizers import *
 #import operator
-#import time
+import time
 import gc
 
 np.set_printoptions(threshold=np.inf)
@@ -28,8 +28,8 @@ np.set_printoptions(threshold=np.inf)
 
 ##### Load Data ################################################################
 
-#number_of_moves, next_move, bit_board = util.load_data("./data/kgsgo-train10k.dat", max_moves=2000000)
-number_of_moves, next_move, bit_board = util.load_data("./data/KGS-2004-19-12106-train10k.dat", max_moves=100000)
+number_of_moves, next_move, bit_board = util.load_data("./data/kgsgo-train10k.dat", max_moves=2000000)
+#number_of_moves, next_move, bit_board = util.load_data("./data/KGS-2004-19-12106-train10k.dat", max_moves=100000)
 #number_of_moves, next_move, bit_board = util.load_data("./data/kgsgo-test.dat")
 
 
@@ -50,7 +50,7 @@ util.plot_liberties(bit_board, delay_time=0.5)
 """
 
 ##### Generate Input for Softmax Layer #########################################
-"""
+
 # list with number of feature planes of all models you want to compare
 number_of_planes = [8, 7, 6]
 
@@ -82,10 +82,10 @@ y_train[np.arange(number_of_moves), 19*next_move[:,0]+next_move[:,1]] =1
 
 
 # add models you want to compare to training data
-training_data = [y_train, x_train8, x_train7, x_train6]
+training_data = [y_train, x_train6, x_train7, x_train6]
 
 gc.collect()
-"""
+
 
 ##### Generate Test Data #######################################################
 
@@ -114,16 +114,18 @@ x_test6= np.reshape(x_test6, (number_of_moves, -1))
 y_test = np.zeros((number_of_moves, 19*19))
 y_test[np.arange(number_of_moves), 19*next_move[:,0]+next_move[:,1]] =1
 
+# choose which models you want to test:
 x_tests = [x_test8, x_test7, x_test6]
 
+
 ##### Train Softmax Network ####################################################
-"""
+
 # during training 5% of training_data is used for validation
 models, histories = util.fit_models(training_data, number_of_epochs=10, batch_size=2048, plot=False)
-"""
+
 
 ##### Model Stats ##############################################################
-"""
+
 # print stats to console
 for history in histories:
     print("Categorical Accuracy:")
@@ -137,28 +139,30 @@ for history in histories:
 
 
 # save models to reuse later
-model_names = ['soft_100k_8l.h5', 'soft_100k_7l.h5', 'soft_100k_6l.h5']
+model_names = ['./networks/softmax_neighbors.h5'] #, 'soft_100k_7l.h5', 'soft_100k_6l.h5']
 for model,n in zip(models, np.arange(len(model_names))):
     name = model_names[n]
     model.save(name)
     print("save {0:d} successfull".format(int(n)))
-"""
+
 
 ##### Load Models for Testing ##################################################
-
+"""
 models = []
 number_of_models = 3
-model_names = ['./networks/soft_100k_8l.h5', './networks/soft_100k_7l.h5', './networks/soft_100k_6l.h5']
+model_names = ['./networks/softmax_8l.h5', './networks/softmax_7l.h5', './networks/softmax_6l.h5']
 
 for m in np.arange(number_of_models):
     models.append(load_model(model_names[m]))
-
+"""
 
 ##### Test Model ###############################################################
 
 for model, m in zip(models, np.arange(len(models))):
+    tic = time.time()
     y_pred = model.predict(x_tests[m] , batch_size=32, verbose=0)
-
+    toc = time.time()
+    print("prediction time = {}".format(toc-tic))
     # coordinates of most likely move:
     which_move=np.argmax(y_pred, axis=1)
     # "probability" of this move:
@@ -168,13 +172,14 @@ for model, m in zip(models, np.arange(len(models))):
     acc_test = np.mean(which_move == np.argmax(y_test, axis=1))
     print('test accuracy: {0}'.format(acc_test))
 
-    """
     # print predicted moves and correct next moves
+
     for i in np.arange(which_move.shape[0]):
         print("Predicted move: ({0:d}, {1:d}) with prob: {2:4f}; Next move: ({3:d}, {4:d})".format(int(which_move[i]/19), int(which_move[i]%19), how_likely[i], int(np.argmax(y_test[i])/19), int(np.argmax(y_test[i])%19)))
-    """
+
+
     # Visualize predictions of network
-    """
+
     plt.figure(2)
     for i in np.arange(y_pred.shape[0]):
         plt.imshow(np.reshape(y_pred[i],(19,19)), interpolation='nearest') #board_positions[i]), cmap = "Greys")
@@ -183,4 +188,3 @@ for model, m in zip(models, np.arange(len(models))):
         plt.pause(1)
         plt.clf()
     plt.show()
-    """
