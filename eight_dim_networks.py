@@ -10,7 +10,7 @@ import time
 ##### Loading Data #############################################################
 # reading all files seperatly
 
-'''
+
 data2001 = './data/KGS-2001-19-2298-train10k.dat'
 data2002 = './data/KGS-2002-19-3646-train10k.dat'
 data2003 = './data/KGS-2003-19-7582-train10k.dat'
@@ -18,9 +18,9 @@ data2004 = './data/KGS-2004-19-12106-train10k.dat'
 data2005 = './data/KGS-2005-19-13941-train10k.dat'
 data2006 = './data/KGS-2006-19-10388-train10k.dat'
 data2007 = './data/KGS-2007-19-11644-train10k.dat'
-'''
-testset = open('./data/kgsgo-test.dat', "rb")
 
+testset = open('./data/kgsgo-test.dat', "rb")
+dataset = open('./data/kgsgo-train10k.dat', "rb")
 '''
 goboard1 = open(data2001, "rb")
 goboard2 = open(data2002, "rb")
@@ -49,7 +49,7 @@ goboard7.close()
 '''
 # transform data to numpy array
 #pos = np.concatenate((pos1[:len(pos1)-3],pos3[:len(pos3)-3],pos4[:len(pos4)-3],pos5[:len(pos5)-3], pos6[:len(pos6)-3], pos7[:len(pos7)-3], pos2))
-pos = np.array(list(testset.read()))
+pos = np.array(list(dataset.read()))
 #pos = np.array(pos4)
 
 # single moves are stored as: 2 bytes GO, 2 bytes next move, 19*19 = 361 Bytes Board
@@ -69,7 +69,9 @@ go_game = go_game[:, 4:] #discard first 4 entries with GO, label for next move
 
 go_game_bits = np.unpackbits(go_game.astype(np.uint8), axis=1)
 
-training_data_full = np.reshape(go_game_bits.copy(), (number_of_moves, 8, 19 ,19  ), 'F')
+print(go_game_bits[0:50])
+td = go_game_bits.copy()
+training_data_full = np.reshape(td.flatten(), (number_of_moves, 19 ,19, 8 ))
 
 print ("loaded %d board positions" % number_of_moves )
 
@@ -94,21 +96,32 @@ model.add(Flatten())
 model.add(Dense(19*19, init = 'uniform', activation = 'softmax'))
 model.add(Reshape((19,19)))
 '''
-#          'clark_et_all_network.h5' -> 4* Convolutional, 1 softmax (note: use full data for training)
+#          'clark_et_all_fullinfo_network.h5' -> 4* Convolutional, 1 softmax (note: use full data for training)
 #          'C1RS_fullinfo.h5' -> same as CRS, but 1 Filter instead of 4
-used_model = './networks/CRS_fullinfo.h5'
+used_model = './networks/C32S_fullinfo.h5'# './networks/clark_et_all_fullinfo_network.h5'
 
-model = load_model(used_model)
+#model = load_model(used_model)
+
+model = Sequential()
+model.add(Convolution2D(32,5,5,border_mode = 'same', input_shape = (19,19,8)))
+model.add(Flatten())
+#model.add(Dense(19*19, init = 'uniform', activation = 'relu'))
+model.add(Dense(19*19, init = 'uniform', activation = 'softmax'))
+#model.add(Reshape((19 * 19)))
+model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['categorical_accuracy'])
+
 '''
 model = Sequential()
-model.add(Convolution2D(8,5,5,border_mode = 'same', input_shape = (8,19,19)))
+model.add(Convolution2D(48,7,7,border_mode = 'same', input_shape = (19, 19, 8)))
+model.add(Convolution2D(32,5,5,border_mode = 'same'))
+model.add(Convolution2D(32,5,5,border_mode = 'same'))
+model.add(Convolution2D(32,5,5,border_mode = 'same'))
 model.add(Flatten())
-model.add(Dense(19*19, init = 'uniform', activation = 'relu'))
 model.add(Dense(19*19, init = 'uniform', activation = 'softmax'))
 
-model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-
-hist = model.fit(training_data_full,labels, nb_epoch=25, batch_size=256, validation_split = 0.09)
+model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['categorical_accuracy'])
+'''
+hist = model.fit(training_data_full,labels, nb_epoch=20, batch_size=128, validation_split = 0.09)
 
 # store training results in same file:
 model.save(used_model)
@@ -125,7 +138,7 @@ plt.plot(hist.history['val_loss'], label ='validation loss')
 #plt.plot(hist.history['acc'], label ='training accuracy')
 
 plt.legend(loc = 'best')
-'''
+
 ###########################################################################################
 # more evaluation:
 # check number of correctly predicted moves on full data set

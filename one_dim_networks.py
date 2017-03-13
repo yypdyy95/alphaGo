@@ -8,7 +8,7 @@ import time
 
 ##### Loading Data #############################################################
 
-
+'''
 data2001 = './data/KGS-2001-19-2298-train10k.dat'
 data2002 = './data/KGS-2002-19-3646-train10k.dat'
 data2003 = './data/KGS-2003-19-7582-train10k.dat'
@@ -16,7 +16,6 @@ data2004 = './data/KGS-2004-19-12106-train10k.dat'
 data2005 = './data/KGS-2005-19-13941-train10k.dat'
 data2006 = './data/KGS-2006-19-10388-train10k.dat'
 data2007 = './data/KGS-2007-19-11644-train10k.dat'
-testset = open('./data/kgsgo-test.dat', "rb")
 
 
 goboard1 = open(data2001, "rb")
@@ -43,8 +42,14 @@ goboard4.close()
 goboard5.close()
 goboard6.close()
 goboard7.close()
+'''
+testset = open('./data/kgsgo-test.dat', "rb")
+dataset = open ('./data/kgsgo-train10k.dat', "rb")
 
-pos = np.array(list(testset.read()))
+#pos = np.array(list(full_set.read()))
+pos = np.array(list(dataset.read()))
+testset.close()
+dataset.close()
 # transform data to numpy array
 #pos = np.concatenate((pos1[:len(pos1)-3],pos3[:len(pos3)-3],pos4[:len(pos4)-3],pos5[:len(pos5)-3], pos6[:len(pos6)-3], pos7[:len(pos7)-3], pos2))
 #pos = np.array(pos4)
@@ -82,7 +87,7 @@ for i in np.arange(5,8):
 
 print ("loaded %d board positions" % number_of_moves )
 
-training_data = np.reshape(go_game_plot, (number_of_moves, 1, 19, 19))
+training_data = np.reshape(go_game_plot, (number_of_moves, 19, 19, 1))
 
 number_of_training_positions = int(0.9* number_of_moves)
 
@@ -97,21 +102,20 @@ labels = np.reshape(target_vectors, (number_of_moves, 19 * 19))
 #########################################################################
 # Training :
 # choose model from: 'CRS_network.h5' -> convolutional - ReLu -> softmax layer
-used_model = 'C8S_network.h5'
+#                    './networks/CS_network.h5' > Conv (4 * 5x5) -> softmax
+used_model = './networks/CS_network.h5'
 
-model = load_model(used_model)
-'''
+#model = load_model(used_model)
+
 model = Sequential()
 
-model.add(Convolution2D(8, 5,5, border_mode='same', input_shape=(1,19, 19) ))
-
+model.add(Convolution2D(4, 5,5, border_mode='same', input_shape=(19, 19, 1) ))
 model.add(Flatten())
+#model.add(Dense(361, init = 'uniform', activation = 'relu'))
 model.add(Dense(361, init = 'uniform', activation = 'softmax'))
 
 model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-'''
-'''
-hist = model.fit(training_data,labels, nb_epoch=20, batch_size=256, validation_split = 0.15)
+hist = model.fit(training_data,labels, nb_epoch=30, batch_size=256, validation_split = 0.1)
 # store training results in same file:
 model.save(used_model)
 
@@ -127,7 +131,7 @@ plt.plot(hist.history['val_loss'], label ='validation loss')
 #plt.plot(hist.history['acc'], label ='training accuracy')
 
 plt.legend(loc = 'best')
-'''
+
 start_time = int(round(time.time() * 1000))
 predictions = model.predict(training_data, verbose = 1)
 print ("prediction time: ", (int(round(time.time() * 1000))-start_time)/number_of_moves, "milliseconds")
