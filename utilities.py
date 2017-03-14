@@ -31,6 +31,7 @@ def load_data(path, max_moves=1e12):
     # write data in position list
     data = open(path, "rb")
     position_list = list(data.read())
+    data.close()
     position_list = np.array(position_list)
     bytes_per_move = 365 #19x19 + 2 for next move +2 for 'GO'
     number_of_moves = int(position_list.shape[0]/bytes_per_move)
