@@ -74,30 +74,25 @@ go_game = go_game[:, 4:] #discard first 4 entries with GO, label for next move
 go_game_bits = np.unpackbits(go_game.astype(np.uint8), axis=1)
 go_game_bits = np.reshape(go_game_bits, (go_game_bits.shape[0], -1, 8))
 
-go_game_plot = np.zeros_like(go_game)
-go_game_plot += 0.5
+raw_board = np.zeros_like(go_game)
+raw_board += 0.5
 
 #check which bits are 1, depending on which bit might be 1 add/subtract 0.5
 # if own stone on field one of bits 2-5 will be 1 -> add 0.5,
 # enemy stone on field -> bit 6-8 will be 1 -> subtract 0.5
 for i in np.arange(2,5):
-    go_game_plot += 0.5 * go_game_bits[:,:,i]
+    raw_board += 0.5 * go_game_bits[:,:,i]
 for i in np.arange(5,8):
-    go_game_plot -= 0.5 * go_game_bits[:,:,i]
+    raw_board -= 0.5 * go_game_bits[:,:,i]
 
 print ("loaded %d board positions" % number_of_moves )
 
-training_data = np.reshape(go_game_plot, (number_of_moves, 19, 19, 1))
-
-number_of_training_positions = int(0.9* number_of_moves)
-
+training_data = np.reshape(raw_board, (number_of_moves, 19, 19, 1))
 
 target_vectors = np.zeros((number_of_moves, 19 * 19))
 target_vectors[np.arange(number_of_moves), 19 * next_move[:,0] + next_move[:,1]] = 1
 
 labels = np.reshape(target_vectors, (number_of_moves, 19 * 19))
-#training_labels = np.reshape(target_vectors[:number_of_training_positions], (number_of_training_positions,19,19))
-#validation_labels = np.reshape(target_vectors[number_of_training_positions:], (number_of_moves - number_of_training_positions,19,19))
 
 #########################################################################
 # Training :
@@ -147,5 +142,59 @@ for i in range(number_of_moves):
     if next_move[i][0] == predicted_move[0] and predicted_move[1] == next_move[i][1]:
         acc +=1
 
-print ( acc/number_of_moves*100 , "percent of moves predicted correctly" )
+print ( acc/number_of_moves*100 , "percent of moves predicted correctly (training and validation data)" )
+
+# to also test accuracy on test set apply same steps as in the beginning once again to the test set
+# fiinally do predictions on test set as before, compare with labels
+
+test = np.array(list(testset.read()))
+testset.close()
+
+# single moves are stored as: 2 bytes GO, 2 bytes next move, 19*19 = 361 Bytes Board
+bytes_per_move = 365
+number_of_moves = int(test.shape[0]/bytes_per_move)
+
+# array of all moves from file:
+go_game = np.zeros((number_of_moves, bytes_per_move))
+
+for move in np.arange(number_of_moves):
+    go_game[move] = test[(move*bytes_per_move):((move+1)*bytes_per_move)]
+
+# get coordinates of next move
+next_move = (go_game[:, 2:4]).astype(int)
+
+go_game = go_game[:, 4:] #discard first 4 entries with GO, label for next move
+
+# on final (plotable) go board store data as follows : own stone 1, enemy stone 0,
+#                                                      empty field 0.5
+go_game_bits = np.unpackbits(go_game.astype(np.uint8), axis=1)
+go_game_bits = np.reshape(go_game_bits, (go_game_bits.shape[0], -1, 8))
+
+raw_board = np.zeros_like(go_game)
+raw_board += 0.5
+
+#check which bits are 1, depending on which bit might be 1 add/subtract 0.5
+# if own stone on field one of bits 2-5 will be 1 -> add 0.5,
+# enemy stone on field -> bit 6-8 will be 1 -> subtract 0.5
+for i in np.arange(2,5):
+    raw_board += 0.5 * go_game_bits[:,:,i]
+for i in np.arange(5,8):
+    raw_board -= 0.5 * go_game_bits[:,:,i]
+
+test_data = np.reshape(raw_board, (number_of_moves, 19, 19, 1))
+
+predictions = model.predict(test_data, verbose = 1)
+predictions.reshape(number_of_moves, 19,19)
+
+#########################################################################################
+acc = 0
+for i in range(number_of_moves):
+    predicted_move = np.argmax(predictions[i])
+    predicted_move = [int(predicted_move/19), predicted_move % 19]
+    #print ("real move: ", next_move[i], "  predicted move: ", predicted_move)
+    if next_move[i][0] == predicted_move[0] and predicted_move[1] == next_move[i][1]:
+        acc +=1
+
+print ( acc/number_of_moves*100 , "percent of moves predicted correctly (test data)" )
+
 plt.show()
