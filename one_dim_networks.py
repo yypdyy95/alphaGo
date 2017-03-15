@@ -5,10 +5,10 @@ from keras.models import Sequential, load_model
 from keras.layers import Dense, Convolution1D, Convolution2D,Flatten
 from matplotlib.colors import LinearSegmentedColormap
 import time
-
+from keras.utils import np_utils
 ##### Loading Data #############################################################
 
-'''
+
 data2001 = './data/KGS-2001-19-2298-train10k.dat'
 data2002 = './data/KGS-2002-19-3646-train10k.dat'
 data2003 = './data/KGS-2003-19-7582-train10k.dat'
@@ -25,7 +25,7 @@ goboard4 = open(data2004, "rb")
 goboard5 = open(data2005, "rb")
 goboard6 = open(data2006, "rb")
 goboard7 = open(data2007, "rb")
-
+'''
 pos1 = list(goboard1.read())
 pos2 = list(goboard2.read())
 pos3 = list(goboard3.read())
@@ -44,11 +44,11 @@ goboard6.close()
 goboard7.close()
 '''
 testset = open('./data/kgsgo-test.dat', "rb")
-dataset = open ('./data/kgsgo-train10k.dat', "rb")
+dataset = open ('./data/kgsgo-test.dat', "rb")#train10k.dat', "rb")
 
 #pos = np.array(list(full_set.read()))
 pos = np.array(list(dataset.read()))
-testset.close()
+# testset.close()
 dataset.close()
 # transform data to numpy array
 #pos = np.concatenate((pos1[:len(pos1)-3],pos3[:len(pos3)-3],pos4[:len(pos4)-3],pos5[:len(pos5)-3], pos6[:len(pos6)-3], pos7[:len(pos7)-3], pos2))
@@ -75,44 +75,88 @@ go_game_bits = np.unpackbits(go_game.astype(np.uint8), axis=1)
 go_game_bits = np.reshape(go_game_bits, (go_game_bits.shape[0], -1, 8))
 
 raw_board = np.zeros_like(go_game)
-raw_board += 0.5
+
+del pos
+
 
 #check which bits are 1, depending on which bit might be 1 add/subtract 0.5
 # if own stone on field one of bits 2-5 will be 1 -> add 0.5,
 # enemy stone on field -> bit 6-8 will be 1 -> subtract 0.5
 for i in np.arange(2,5):
-    raw_board += 0.5 * go_game_bits[:,:,i]
+    raw_board +=  go_game_bits[:,:,i]
 for i in np.arange(5,8):
-    raw_board -= 0.5 * go_game_bits[:,:,i]
+    raw_board -=  go_game_bits[:,:,i]
 
 print ("loaded %d board positions" % number_of_moves )
 
 training_data = np.reshape(raw_board, (number_of_moves, 19, 19, 1))
+
+del raw_board
 
 target_vectors = np.zeros((number_of_moves, 19 * 19))
 target_vectors[np.arange(number_of_moves), 19 * next_move[:,0] + next_move[:,1]] = 1
 
 labels = np.reshape(target_vectors, (number_of_moves, 19 * 19))
 
+del target_vectors
 #########################################################################
 # Training :
 # choose model from: 'CRS_network.h5' -> convolutional - ReLu -> softmax layer
 #                    './networks/CS_network.h5' > Conv (4 * 5x5) -> softmax
-used_model = './networks/CS_network.h5'
+used_model = './networks/C32S_network.h5'
 
-#model = load_model(used_model)
+model = load_model(used_model)
+'''
+#model = Sequential()
 
-model = Sequential()
+#con_layer = Convolution2D(4, 5,5, border_mode='same', input_shape=(19, 19, 1), name = 'con_layer' )
+#model.add(con_layer)
 
-model.add(Convolution2D(4, 5,5, border_mode='same', input_shape=(19, 19, 1) ))
+model.add(Convolution2D(4, 5,5, border_mode='same', input_shape=(19, 19, 1), name = 'con_layer' ))
 model.add(Flatten())
-#model.add(Dense(361, init = 'uniform', activation = 'relu'))
+model.add(Dense(361, init = 'uniform', activation = 'relu'))
 model.add(Dense(361, init = 'uniform', activation = 'softmax'))
 
+
 model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-hist = model.fit(training_data,labels, nb_epoch=30, batch_size=256, validation_split = 0.1)
+'''
+
+print("total number of Parameters: ", model.count_params())
+
+#hist = model.fit(training_data,labels, nb_epoch=5, batch_size= 8 * 256, validation_split = 0.1)
 # store training results in same file:
+'''
 model.save(used_model)
+
+weights = []
+#for layer in model.layers:
+
+weights = np.array(model.layers[0].get_weights())
+
+weights = weights[0]
+#print(weights)
+
+weights = np.reshape(weights, (32,5,5))
+
+#print(weights[0])
+
+fig = plt.figure(figsize = (8,8))
+
+plt1 = fig.add_subplot(2,2,1)
+plt2 = fig.add_subplot(2,2,2)
+plt3 = fig.add_subplot(2,2,3)
+plt4 = fig.add_subplot(2,2,4)
+
+plt1.imshow(weights[0])
+plt2.imshow(weights[1])
+plt3.imshow(weights[2])
+plt4.imshow(weights[3])
+
+plt.show()
+
+#print(weights)
+#print("total number of Parameters: ", model.count_params())
+#for weight_matrix in weights[0]:
 
 ########################################################################################
 #plotting training history:
@@ -126,7 +170,7 @@ plt.plot(hist.history['val_loss'], label ='validation loss')
 #plt.plot(hist.history['acc'], label ='training accuracy')
 
 plt.legend(loc = 'best')
-
+'''
 start_time = int(round(time.time() * 1000))
 predictions = model.predict(training_data, verbose = 1)
 print ("prediction time: ", (int(round(time.time() * 1000))-start_time)/number_of_moves, "milliseconds")
@@ -171,15 +215,15 @@ go_game_bits = np.unpackbits(go_game.astype(np.uint8), axis=1)
 go_game_bits = np.reshape(go_game_bits, (go_game_bits.shape[0], -1, 8))
 
 raw_board = np.zeros_like(go_game)
-raw_board += 0.5
+#raw_board += 0.5
 
 #check which bits are 1, depending on which bit might be 1 add/subtract 0.5
 # if own stone on field one of bits 2-5 will be 1 -> add 0.5,
 # enemy stone on field -> bit 6-8 will be 1 -> subtract 0.5
 for i in np.arange(2,5):
-    raw_board += 0.5 * go_game_bits[:,:,i]
+    raw_board +=  go_game_bits[:,:,i]
 for i in np.arange(5,8):
-    raw_board -= 0.5 * go_game_bits[:,:,i]
+    raw_board -= go_game_bits[:,:,i]
 
 test_data = np.reshape(raw_board, (number_of_moves, 19, 19, 1))
 
