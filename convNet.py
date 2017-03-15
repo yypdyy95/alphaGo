@@ -12,7 +12,7 @@ K.set_image_dim_ordering('th')
 
 ##### Load Data ################################################################
 #number_of_moves, next_move, bit_board = util.load_data("./data/KGS-2004-19-12106-train10k.dat", max_moves=500000)
-number_of_moves, next_move, bit_board = util.load_data("./data/kgsgo-train10k.dat")
+number_of_moves, next_move, bit_board = util.load_data("./data/kgsgo-test.dat")
 
 
 ##### Generate Training Data ###################################################
@@ -26,6 +26,10 @@ for move in np.arange(number_of_moves):
     x_train[move] = np.concatenate((planes_pos, planes_lib, plane_neighbors), axis=0)
     #x_train[move] = util.get_board(bit_board[move])
 
+del planes_pos
+del planes_lib
+del plane_neighbors
+
 y_train = np.zeros((number_of_moves, 19*19))
 y_train[np.arange(number_of_moves), 19*next_move[:,0]+next_move[:,1]] =1
 
@@ -37,15 +41,15 @@ gc.collect()
 
 ##### Train Network ############################################################
 
-model_name = './networks/CNN_7l_16f_380k.h5'
-number_of_filters = 32 #wenn zu hoch, setze auf 16
+model_name = './networks/CNN_7l_16f.h5'
+number_of_filters = 16 #wenn zu hoch, setze auf 16
 
 model = Sequential()
 model.add(Convolution2D(number_of_filters, 5,5, input_shape=(number_of_planes, 19, 19), border_mode='same', activation='relu'))
 print(model.output_shape)
 model.add(Convolution2D(number_of_filters, 3,3, border_mode='same', activation='relu'))
 print(model.output_shape)
-model.add(Convolution2D(1, 1,1, input_shape=(number_of_planes, 19, 19),  border_mode='same', activation='relu'))
+model.add(Convolution2D(1, 1,1, border_mode='same', activation='relu'))
 print(model.output_shape)
 model.add(Flatten())
 print(model.output_shape)
@@ -70,7 +74,7 @@ print(history.history['val_loss'])
 ##### Test Network #############################################################
 
 """
-model_name = './networks/CNN_7l_4f_380k.h5'
+model_name = './networks/CNN_7l_32f.h5'
 model = load_model(model_name)
 number_of_moves, next_move, bit_board = util.load_data("./data/kgsgo-test.dat")
 gc.collect()
