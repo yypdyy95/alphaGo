@@ -74,10 +74,10 @@ print(history.history['val_loss'])
 print("\n ++++++++++++++++++++++++++++++++++ training finished +++++++++++++++++++++++++++++++++++ \n")
 ##### Test Network #############################################################
 print("\n ++++++++++++++++++++++++++++++++++    test network   +++++++++++++++++++++++++++++++++++ \n")
-print("Model to test: ", model_name, "\n")
+
 model_name = './networks/CNN_pos_32f5_380k.h5'
 model = load_model(model_name)
-
+print("Model to test: ", model_name, "\n")
 
 number_of_moves, next_move, bit_board = util.load_data("./data/kgsgo-test.dat")
 gc.collect()
