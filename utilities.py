@@ -4,7 +4,6 @@ from matplotlib.colors import LinearSegmentedColormap
 from keras.models import Sequential
 from keras.layers import Dense, Activation
 import operator
-#import time
 import gc
 
 def load_data(path, max_moves=1e12):
@@ -29,6 +28,9 @@ def load_data(path, max_moves=1e12):
     """
 
     # write data in position list
+
+    # NOTE: even if maximum number of moves is less then number of samples in file,
+    #       whole file is read, should be changed to save some time
     data = open(path, "rb")
     position_list = list(data.read())
     data.close()
@@ -142,6 +144,65 @@ def get_neighbors(board_position, prev_move):
     neighbors = np.reshape(neighbors, (1, 19, 19))
 
     return neighbors
+
+def get_plotable(board_positions):
+    '''
+    gets go Board in the form of: black stone: -1, vacant field 0, white stone 1
+    in one layer
+
+    Inputs:
+    - board_position: np.array of shape (361, 8) encoding all binary features
+      of one particular board_position
+    Returns:
+    - plotable: np.array of shape (1,19,19) with above encoding of the board
+    '''
+    raw_board = np.zeros((19*19))
+    # check which bits are 1, depending on which bit might be 1 add/subtract 0.5
+    # if own stone on field one of bits 2-5 will be 1 -> add 0.5,
+    # enemy stone on field -> bit 6-8 will be 1 -> subtract 0.5
+    for i in np.arange(2,5):
+        raw_board +=  board_positions[:,i]
+    for i in np.arange(5,8):
+        raw_board -=  board_positions[:,i]
+
+    return np.reshape(raw_board,(19,19))
+
+def get_training_data(board_positions, number_of_moves, next_move, number_of_planes):
+    '''
+    gets training data in desired representation (1,3,7 or 8 layers)
+
+    Inputs:
+    - board_position: np.array of shape (361, 8) encoding all binary features
+      of one particular board_position
+    - number_of_moves: number of board_positions
+    - next move: array returned from load data, needed for encoding liberties
+    Returns:
+    - training data as numpy array with shape (number_of_moves, number_of_planes, 19, 19)
+    '''
+    x_train = np.zeros((number_of_moves, number_of_planes, 19, 19))
+    print()
+    if number_of_planes == 7:
+        for move in np.arange(number_of_moves):
+            planes_pos = get_board(board_positions[move])
+            planes_lib = get_liberties(board_positions[move])
+            plane_neighbors = get_neighbors(board_positions[move], next_move[move-1])
+            x_train[move] = np.concatenate((planes_pos, planes_lib, plane_neighbors), axis=0)
+
+    elif number_of_planes == 8:
+        x_train = board_positions.reshape(number_of_moves,8,19,19)
+
+    elif number_of_planes == 3:
+        for move in np.arange(number_of_moves):
+            x_train[move] = get_board(board_positions[move])
+            #print(x_train[move,1,5:15,5:15])
+
+
+    elif number_of_planes == 1:
+        for move in np.arange(number_of_moves):
+            x_train[move] = get_plotable(board_positions[move])
+
+    return x_train
+
 
 def plot_board(board_positions, next_move=None, ko=False, delay_time=0.2):
     """
