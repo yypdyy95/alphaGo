@@ -540,9 +540,18 @@ def visualize_weights(layer, max_filters = 100):
     weights = np.array(weights[0])
 
     number_of_filters = len(weights)
+
     if max_filters < number_of_filters:
         number_of_filters = max_filters
     number_of_planes = len(weights[0])
+    if number_of_planes == 7:
+        plane_names = ['own', 'opponent', 'vacant', '1 liberty', '2 liberties', '3 liberties', 'neighbour']
+    elif number_of_planes == 3:
+        plane_names = ['own', 'opponent', 'vacant']
+    elif number_of_planes == 8:
+        plane_names = ['ones','ko plane','opponent (3 lib)','opponent (2 lib)', 'opponent (1 lib)', 'own (3 lib)','own (2 lib)','own (1 lib)' ]
+    elif number_of_planes == 1:
+        plane_names = ['plane']
 
     fig, ax = plt.subplots( number_of_filters,number_of_planes)
     fig.set_size_inches(11,9)
@@ -556,7 +565,7 @@ def visualize_weights(layer, max_filters = 100):
     plt.subplots_adjust(left=left, bottom=bottom, right=right, top=top, wspace=wspace, hspace=hspace)
     print(ax.shape)
     for i in range(number_of_planes):
-        ax[0,i].set_title("plane %d" %(i+1))
+        ax[0,i].set_title(plane_names[i])
         for j in range(number_of_filters):
             if i == 0:
                 ax[j,i].text(left,0.5*(bottom+top), 'filter %d' %(j+1),
@@ -566,7 +575,7 @@ def visualize_weights(layer, max_filters = 100):
                 transform=ax[j,i].transAxes)
 
             ax[j,i].axis('off')
-            im = ax[j,i].imshow(weights[j,i])
+            im = ax[j,i].imshow(weights[j,i], cmap = 'plasma')
     fig.colorbar(im, ax=ax.ravel().tolist())
     plt.show()
 
