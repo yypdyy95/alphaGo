@@ -4,7 +4,6 @@ from matplotlib.colors import LinearSegmentedColormap
 from keras.models import Sequential
 from keras.layers import Dense, Activation
 import operator
-#import time
 import gc
 
 def load_data(path, max_moves=1e12):
@@ -29,6 +28,9 @@ def load_data(path, max_moves=1e12):
     """
 
     # write data in position list
+
+    # NOTE: even if maximum number of moves is less then number of samples in file,
+    #       whole file is read, should be changed to save some time
     data = open(path, "rb")
     position_list = list(data.read())
     data.close()
@@ -142,6 +144,65 @@ def get_neighbors(board_position, prev_move):
     neighbors = np.reshape(neighbors, (1, 19, 19))
 
     return neighbors
+
+def get_plotable(board_positions):
+    '''
+    gets go Board in the form of: black stone: -1, vacant field 0, white stone 1
+    in one layer
+
+    Inputs:
+    - board_position: np.array of shape (361, 8) encoding all binary features
+      of one particular board_position
+    Returns:
+    - plotable: np.array of shape (1,19,19) with above encoding of the board
+    '''
+    raw_board = np.zeros((19*19))
+    # check which bits are 1, depending on which bit might be 1 add/subtract 0.5
+    # if own stone on field one of bits 2-5 will be 1 -> add 0.5,
+    # enemy stone on field -> bit 6-8 will be 1 -> subtract 0.5
+    for i in np.arange(2,5):
+        raw_board +=  board_positions[:,i]
+    for i in np.arange(5,8):
+        raw_board -=  board_positions[:,i]
+
+    return np.reshape(raw_board,(19,19))
+
+def get_training_data(board_positions, number_of_moves, next_move, number_of_planes):
+    '''
+    gets training data in desired representation (1,3,7 or 8 layers)
+
+    Inputs:
+    - board_position: np.array of shape (361, 8) encoding all binary features
+      of one particular board_position
+    - number_of_moves: number of board_positions
+    - next move: array returned from load data, needed for encoding liberties
+    Returns:
+    - training data as numpy array with shape (number_of_moves, number_of_planes, 19, 19)
+    '''
+    x_train = np.zeros((number_of_moves, number_of_planes, 19, 19))
+    print()
+    if number_of_planes == 7:
+        for move in np.arange(number_of_moves):
+            planes_pos = get_board(board_positions[move])
+            planes_lib = get_liberties(board_positions[move])
+            plane_neighbors = get_neighbors(board_positions[move], next_move[move-1])
+            x_train[move] = np.concatenate((planes_pos, planes_lib, plane_neighbors), axis=0)
+
+    elif number_of_planes == 8:
+        x_train = board_positions.reshape(number_of_moves,8,19,19)
+
+    elif number_of_planes == 3:
+        for move in np.arange(number_of_moves):
+            x_train[move] = get_board(board_positions[move])
+            #print(x_train[move,1,5:15,5:15])
+
+
+    elif number_of_planes == 1:
+        for move in np.arange(number_of_moves):
+            x_train[move] = get_plotable(board_positions[move])
+
+    return x_train
+
 
 def plot_board(board_positions, next_move=None, ko=False, delay_time=0.2):
     """
@@ -466,6 +527,56 @@ def plot_loss_acc(histories):
     hspace = 0.4   # the amount of height reserved for white space between subplots
     plt.subplots_adjust(left=left, bottom=bottom, right=right, top=top, wspace=wspace, hspace=hspace)
 
+    plt.show()
+
+def visualize_weights(layer, max_filters = 100):
+    '''
+    plotting weight matrices of convolutional layer
+
+    Inputs:
+    - layer: Conv layer of which weights should be visualized
+    '''
+    weights = layer.get_weights()
+    weights = np.array(weights[0])
+
+    number_of_filters = len(weights)
+
+    if max_filters < number_of_filters:
+        number_of_filters = max_filters
+    number_of_planes = len(weights[0])
+    if number_of_planes == 7:
+        plane_names = ['own', 'opponent', 'vacant', '1 liberty', '2 liberties', '3 liberties', 'neighbour']
+    elif number_of_planes == 3:
+        plane_names = ['own', 'opponent', 'vacant']
+    elif number_of_planes == 8:
+        plane_names = ['ones','ko plane','opponent (3 lib)','opponent (2 lib)', 'opponent (1 lib)', 'own (3 lib)','own (2 lib)','own (1 lib)' ]
+    elif number_of_planes == 1:
+        plane_names = ['plane']
+
+    fig, ax = plt.subplots( number_of_filters,number_of_planes)
+    fig.set_size_inches(11,9)
+    fig.suptitle('Visualisation of Filters', fontsize=20)
+    left  = 0.05  # the left side of the subplots of the figure
+    right = 0.98    # the right side of the subplots of the figure
+    bottom = 0.02   # the bottom of the subplots of the figure
+    top = 0.85      # the top of the subplots of the figure
+    wspace = 0.05   # the amount of width reserved for blank space between subplots
+    hspace = 0.05   # the amount of height reserved for white space between subplots
+    plt.subplots_adjust(left=left, bottom=bottom, right=right, top=top, wspace=wspace, hspace=hspace)
+    print(ax.shape)
+    for i in range(number_of_planes):
+        ax[0,i].set_title(plane_names[i])
+        for j in range(number_of_filters):
+            if i == 0:
+                ax[j,i].text(left,0.5*(bottom+top), 'filter %d' %(j+1),
+                horizontalalignment='right',
+                verticalalignment='center',
+                rotation='vertical',
+                transform=ax[j,i].transAxes)
+
+            ax[j,i].axis('off')
+            im = ax[j,i].imshow(weights[j,i], cmap = 'plasma')
+    fig.colorbar(im, ax=ax.ravel().tolist())
     plt.show()
 
 
